@@ -1,0 +1,22 @@
+-- MAIN DESCRIPTION --
+2.5 dimensional platformer, a la Smash Brothers. Hero moves from the left of the stage to the right.
+Objective: Collectibles? Reach the end of the stage? Destroy enemies? Dunno lol
+Environment: A back-alley kind of world, dimly lit. There are boxes and windows in the background --
+the walls of houses are made of brick and the night sky is visible above them. Houses are individual
+units and there can be "cracks" between them. Houses can have drainage pipes behind them, windows, 
+be dusty... There could light coming from hanging lamps, or lamposts. The hanging lamps could swing
+around back and forth. There could be a fly or two around each lamp.
+
+The hero has the ability to run, jump, and... something. Shoot light out of his hands? Maybe throw
+light bombs. Not necessarily anything to do with light, but it would be cool. Shadows would be cool, 
+depending on how hard they are to implement. 
+
+The whole premise of the game needs to settled, though... a megaman clone, maybe? With a flamethrower.
+Or a vaccuum. Luigi's Mansion clone? 
+Ooh ooh! Objective: light all the lamps. Yay!
+
+Lamp: hanging street lamps that can kind of sway (maybe). They have a fly or two around them (particle
+system? Not necessary... Just have like three and make them move in a sine course around the center).
+They have a light in the center. How bad is this gonna be if we want to render more than 8 lights at 
+once? It would also be cool if the light gave off random sparks every once in a while. This would be 
+a particle system thing. 
