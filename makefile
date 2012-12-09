@@ -2,7 +2,7 @@ TARGET = final
 
 USING_CSE40166 = 1
 USING_FREEGLUT = 1
-USING_FREEALUT = 0
+USING_FREEALUT = 1
 USING_OPENAL = 0
 USING_FMOD = 0
 USING_GLUI = 0
@@ -19,7 +19,7 @@ else
 endif
 
 ifeq "$(USING_CSE40166)" "1"
-    CSE40166 = /home/david/Documents/graphics/CSE40166
+    CSE40166 = /home/david/Documents/Notre_Dame/graphics/CSE40166
     ifneq "$(wildcard $(CSE40166))" ""
         INCPATH += -I$(CSE40166)/include
         LIBPATH += -L$(CSE40166)/lib -Wl,--rpath -Wl,$(CSE40166)/lib
@@ -125,9 +125,13 @@ main.o:
 .cpp.o: 	
 	$(CXX) $(INCPATH) -c -o $@ $<
 
-$(TARGET): main.o
+$(TARGET): main.o SubatomicParticle.o ParticleManager.o ParticleSystem.o Singularity.o
 	$(CXX) $(CFLAGS) $(INCPATH) -o $@ $^ $(LIBPATH) $(LIBS)
 
 
 # DEPENDENCIES
 main.o: main.cpp
+SubatomicParticle.o: SubatomicParticle.cpp SubatomicParticle.h
+ParticleManager.o: ParticleManager.cpp ParticleManager.h
+ParticleSystem.o: ParticleSystem.cpp ParticleSystem.h
+Singularity.o: Singularity.cpp Singularity.h

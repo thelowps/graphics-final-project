@@ -7,6 +7,7 @@
  */
 
 /* must be included first before GL.h */
+/*
 #include <GL/glew.h>
 
 #ifdef __APPLE__
@@ -23,6 +24,9 @@
 
 #include <CSE40166/CSE40166.h>
 using namespace CSE40166;
+*/
+
+#include "headers.h" // opengl headers and stuff
 
 #include <math.h>
 #include <stdio.h>
@@ -33,6 +37,9 @@ using namespace CSE40166;
 #include <iostream>
 using namespace std;
 
+#include "ParticleManager.h"
+#include "Singularity.h"
+
 // GLOBAL VARIABLES ////////////////////////////////////////////////////////////
 
 //global variables to keep track of window width and height.
@@ -42,12 +49,29 @@ int windowWidth = 512, windowHeight = 512;
 
 GLint leftMouseButton = GLUT_UP, rightMouseButton = GLUT_UP;    //status of the mouse buttons
 int mouseX = 0, mouseY = 0;					//last known X and Y of the mouse
+int leftClickMouseX = 0, leftClickMouseY = 0;
+
+// level dimensions
+float levelWidth = 100, levelHeight = 100, levelDepth = 20;
+
+// keeping track of time
+double lastTime = 0;
 
 // a pointer to each of our camera types
 Camera *arcballCam = NULL;
 // and a pointer to the current camera we are using
 Camera *currentCamera = NULL; 
 Point *heroLoc;
+
+// Our particle manager
+ParticleManager *particleManager;
+
+// Our hero, the singularity
+Singularity *singularity;
+
+// Shader handles
+GLint velocityShaderHandle;
+GLint velocityVertexShader, velocityFragmentShader;
 
 // END GLOBAL VARIABLES ///////////////////////////////////////////////////////
 
@@ -169,10 +193,10 @@ void renderScene(void) {
 	
   //code to render our OBJ model...
   glEnable(GL_DEPTH_TEST);
-  glEnable(GL_NORMALIZE);
 
   // DRAW STUFF HERE //
-  
+
+  // Background
   glPushMatrix(); {
 
     glScalef(5, 1, 1);
@@ -182,7 +206,7 @@ void renderScene(void) {
       glVertex3f(2, 2, 0);
       glVertex3f(0, 2, 0);
       glVertex3f(0, 0, 0);
-
+ 
       // glColor3f(1,0,0);
       // glVertex3f(0, 2, 0);
       // glVertex3f(0, 2, 2);
@@ -199,8 +223,38 @@ void renderScene(void) {
     
   } glPopMatrix();
 
-  // DRAW STUFF HERE //
+  singularity->draw();
+  particleManager->draw();  
+  
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_LIGHTING);
+  if (leftMouseButton == GLUT_DOWN) {
+    float boxX = (2*(float)leftClickMouseX/windowHeight)-1;
+    float boxY = (2*(float)leftClickMouseY/windowHeight)-1;
+    float boxXX = (2*(float)mouseX/windowHeight)-1;
+    float boxYY = (2*(float)mouseY/windowHeight)-1;
+    glColor3f(1,1,1);
+    glPushMatrix(); {
+      glLoadIdentity();
+      glMatrixMode(GL_PROJECTION);
+      glPushMatrix();
+      glLoadIdentity();
+      glBegin(GL_LINE_STRIP); {
+	glVertex3f(boxX, -boxY, 0);
+	glVertex3f(boxXX, -boxY, 0);
+	glVertex3f(boxXX, -boxYY, 0);
+	glVertex3f(boxX, -boxYY, 0);
+	glVertex3f(boxX, -boxY, 0);
+      } glEnd();
+      glPopMatrix();
+      glMatrixMode(GL_MODELVIEW);
+    } glPopMatrix();
+  }
 
+  glEnable(GL_DEPTH_TEST);
+
+  // DONE DRAWING //
+  
   //push the back buffer to the screen
   glutSwapBuffers();
 }
@@ -229,6 +283,16 @@ void mouseCallback(int button, int state, int thisX, int thisY) {
   //update the left and right mouse button states, if applicable
   if(button == GLUT_LEFT_BUTTON) {
     leftMouseButton = state;
+
+    if (state == GLUT_DOWN) {
+      leftClickMouseX = thisX;
+      leftClickMouseY = thisY;
+    } else {
+      //calculate square, send notice to particlemanager
+      particleManager->acquireStrayParticlesInBox(leftClickMouseX, windowHeight - leftClickMouseY, 
+						  mouseX, windowHeight - mouseY, &(singularity->system));
+    }
+
   } else if(button == GLUT_RIGHT_BUTTON) {
     rightMouseButton = state;
   }
@@ -239,7 +303,7 @@ void mouseCallback(int button, int state, int thisX, int thisY) {
 }
 
 void mouseMotion(int x, int y) {
-  if(leftMouseButton == GLUT_DOWN ) {
+  if( leftMouseButton == GLUT_DOWN ) {
     //update theta and phi! 
     currentCamera->setTheta( currentCamera->getTheta() + (x-mouseX)*0.005 );
     currentCamera->setPhi( currentCamera->getPhi() + (y-mouseY)*0.005 );
@@ -278,6 +342,14 @@ void mouseMotion(int x, int y) {
 
 // (value taken in is a dummy)
 void myTimer(int value) {	
+
+  double currTime = glutGet(GLUT_ELAPSED_TIME);
+  double timePassed = (currTime - lastTime)/1000;
+  lastTime = currTime;
+
+  particleManager->update(timePassed);
+  singularity->update(timePassed);
+
   glutPostRedisplay();
   glutTimerFunc((unsigned int)(1000.0 / 60.0), myTimer, 0);
 }
@@ -300,6 +372,46 @@ void loadTextures () {
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
   glTexEnvi( GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE );
 }
+
+
+int setupShaders() {
+	char *vertexShaderString, *fragmentShaderString;
+	
+	/* read in each text file and store the contents in a string */
+	readTextFile( "velocity_shader.v.glsl", vertexShaderString   );
+	readTextFile( "velocity_shader.f.glsl", fragmentShaderString );
+	
+	/* create a handle to our vertex and fragment shaders */
+	velocityVertexShader   = glCreateShader( GL_VERTEX_SHADER   );
+	velocityFragmentShader = glCreateShader( GL_FRAGMENT_SHADER );
+	
+	/* send the contents of each program to the GPU */
+	glShaderSource( velocityVertexShader,   1, (const char**)&vertexShaderString,   NULL );	printLog( velocityVertexShader   );
+	glShaderSource( velocityFragmentShader, 1, (const char**)&fragmentShaderString, NULL );	printLog( velocityFragmentShader );
+	
+	/* we are good programmers so free up the memory used by each buffer */
+	// ... why are we mixing malloc and delete? that's baaaad
+	//delete [] vertexShaderString;
+	//delete [] fragmentShaderString;
+	
+	/* compile each shader on the GPU */
+	glCompileShader( velocityVertexShader   );	printLog( velocityVertexShader   );
+	glCompileShader( velocityFragmentShader );	printLog( velocityFragmentShader );
+	
+	/* get a handle to a shader program */
+	velocityShaderHandle = glCreateProgram();
+	
+	/* attach the vertex and fragment shaders to the shader program */
+	glAttachShader( velocityShaderHandle, velocityVertexShader   );	printLog( velocityVertexShader   );
+	glAttachShader( velocityShaderHandle, velocityFragmentShader );	printLog( velocityFragmentShader );
+	
+	/* link all the programs together on the GPU */
+	glLinkProgram( velocityShaderHandle );	printLog( velocityShaderHandle );
+	
+	/* return success */
+	return 0;
+}
+
 
 int main(int argc, char **argv) {
 
@@ -342,6 +454,27 @@ int main(int argc, char **argv) {
   setupCameras();		// setup our cameras
   setupLights();		// setup our lights
   loadTextures(); // load our textures
+
+  int shaderResult = setupShaders();	// setup our shaders
+  if( shaderResult != 0 ) {
+    cout << "Bad shaders." << endl;
+    return 0;
+  }
+
+
+  /////////////////////////////
+  // INITIALIZE GAME OBJECTS //
+  /////////////////////////////
+
+  singularity = new Singularity( Point(0,1,1) );
+
+  // create particle manager
+  particleManager = new ParticleManager;
+  particleManager->setShader(velocityShaderHandle);
+  
+  // link it to the particle systems
+  particleManager->manageSystem( &(singularity->system) );
+  singularity->manager = particleManager;
 	
   //register callback functions...
   glutKeyboardFunc(normalKeys);
