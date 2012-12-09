@@ -23,7 +23,7 @@ void main(void) {
   
   vec3 vertexnew = (dist + extraLength) + center;
   
-  gl_Position = gl_ModelViewProjectionMatrix * vec4(vertexnew.xyz, 1);
-  //gl_Position = ftransform();
+  //gl_Position = gl_ModelViewProjectionMatrix * vec4(vertexnew.xyz, 1);
+  gl_Position = ftransform();
   
 }

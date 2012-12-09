@@ -15,7 +15,16 @@ ParticleSystem::ParticleSystem () {
   loc = Point(0,0,0);
   radius = 1;
 
-  springConstant = 1;
+  springConstant = 5.0;
+  repelConstant = 0.1;
+  dampConstant = 0.02;
+  magneticField = Vector(0.1, 0.1, 7.0);
+
+  springForcesOn = true;
+  repelForcesOn = true;
+  magneticForcesOn = true;
+
+  speedLimit = 30;
 
   velShader = 0;
   celShader = 0;
@@ -30,25 +39,44 @@ void ParticleSystem::update (float timePassed) {
     
     // FORCES HERE //
     // Do we want to make this code more general? //
-
-    // Repel force //
-    //for (set<SubatomicParticle*>::iterator jt = particles.begin(), end = particles.end(); jt != end; ++jt) {
-      
-    //}
     
-    // spring force //
-    float x_dist = (*it)->loc.x - loc.x;
-    float y_dist = (*it)->loc.y - loc.y;
-    //float z_dist = loc.z - (*it)->loc.z;
-    float ptoc = (x_dist*x_dist + y_dist*y_dist);
-    //if (ptoc < 1) ptoc = 1;
-    float force = springConstant * ((*it)->data['s'] - ptoc);
-    float phi = atan2f(y_dist, x_dist);
-    float x_force = force*cos(phi);
-    float y_force = force*sin(phi);
-    Vector F (x_force, y_force, 0.0);
-    (*it)->vel += F;
+    if (repelForcesOn) {
+      // Repel force //
+      set<SubatomicParticle*>::iterator temp = it;
+      for (set<SubatomicParticle*>::iterator jt = ++temp, end = particles.end(); jt != end; ++jt) {
+	Vector dist = (*it)->loc - (*jt)->loc;
+	Vector force = ( repelConstant / dist.magSq() ) * dist;
+	(*it)->vel += force;
+	(*jt)->vel -= force;
+      }
+    }    
 
+    if (springForcesOn) {
+      // spring force //
+      Vector ptoc = (*it)->loc - loc;
+      float f = springConstant * ((*it)->data['s'] - ptoc.mag());
+      //if ( fabs(f) > 1.0 ) 
+      Vector force = ptoc * f;
+      (*it)->vel += force;
+    }
+
+    if (magneticForcesOn) {
+      Vector ptoc = (*it)->loc - loc;
+      // magnetic field force //
+      Vector force = cross( magneticField, ptoc );
+      float t = (force.magSq()-(*it)->vel.magSq())/force.magSq();
+      if (t < 0) t = 0;
+      force = force * t;
+      (*it)->vel += force;
+    }
+
+    // dampen the movement //
+    (*it)->vel -= (*it)->vel * dampConstant; 
+    if ((*it)->vel.mag() > speedLimit) {
+      (*it)->vel *= (speedLimit/(*it)->vel.mag());
+    }
+
+    // finally, update the particle
     (*it)->update(timePassed);
   }
 }
@@ -75,18 +103,25 @@ void ParticleSystem::draw () {
 void ParticleSystem::createParticle (int amt) {
   for (int i = 0; i < amt; ++i) {
     SubatomicParticle* part = new SubatomicParticle;
-    float x = (((float)(rand()%1001)/500)-1) * radius + loc.x;
-    float y = (((float)(rand()%1001)/500)-1) * radius + loc.y;
-    float z = (((float)(rand()%1001)/500)-1) * radius + loc.z;
+    float x = (((float)(rand()%1001)/500)-1) * (radius/4) + loc.x;
+    float y = (((float)(rand()%1001)/500)-1) * (radius/4) + loc.y;
+    float z = (((float)(rand()%1001)/500)-1) * (radius/4) + loc.z;
     part->loc = Point(x, y, z);
-    float springDist = ((float)(rand()%1001)/1000) * radius;
-    part->data['s'] = springDist;
+
+    initializeParticle(part);
     particles.insert( part );
   }
 }
 
+// Initialize a particle's values
+void ParticleSystem::initializeParticle (SubatomicParticle* p) {
+  float springDist = ((float)(rand()%1001)/1000) * (radius/4);
+  p->data['s'] = springDist;  
+}
+
 // places a particle under this system's control
 void ParticleSystem::receiveParticle (SubatomicParticle* p) {
+  initializeParticle(p);
   particles.insert(p);
 }
 

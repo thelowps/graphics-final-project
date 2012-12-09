@@ -30,8 +30,16 @@ public:
   Point loc;
   float radius;
 
+  bool springForcesOn;
+  bool repelForcesOn;
+  bool magneticForcesOn;
+
   float springConstant;
   float repelConstant;
+  float dampConstant;
+  Vector magneticField;
+
+  float speedLimit;
 
   GLint velShader;
   GLint celShader;
@@ -39,9 +47,8 @@ public:
   std::set<SubatomicParticle*> particles;
 
 private:
-
   
-  
+  void initializeParticle (SubatomicParticle* p);
 };
 
 #endif // PARTICLESYSTEM_H

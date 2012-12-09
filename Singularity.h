@@ -16,14 +16,15 @@ class Singularity {
 
 public:
 
-  Singularity( Point location = Point(0,0,0) );
+  Singularity( Point* location );
   ~Singularity();
 
   void update (float timePassed);
   void draw ();
 
-  Point loc;
+  Point* loc;
   Vector vel;
+  float maxVel;
 
   ParticleSystem system;
   ParticleManager* manager;

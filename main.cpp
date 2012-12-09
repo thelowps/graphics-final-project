@@ -51,6 +51,8 @@ GLint leftMouseButton = GLUT_UP, rightMouseButton = GLUT_UP;    //status of the 
 int mouseX = 0, mouseY = 0;					//last known X and Y of the mouse
 int leftClickMouseX = 0, leftClickMouseY = 0;
 
+std::map<char, short> keyState;
+
 // level dimensions
 float levelWidth = 100, levelHeight = 100, levelDepth = 20;
 
@@ -61,7 +63,7 @@ double lastTime = 0;
 Camera *arcballCam = NULL;
 // and a pointer to the current camera we are using
 Camera *currentCamera = NULL; 
-Point *heroLoc;
+Point *singularityLoc;
 
 // Our particle manager
 ParticleManager *particleManager;
@@ -115,8 +117,8 @@ void setupCameras() {
   currentCamera->setTheta( 2.80f );
   currentCamera->setPhi( 2.0f );
 
-  heroLoc = new Point;
-  currentCamera->followPoint( heroLoc );
+  singularityLoc = new Point;
+  currentCamera->followPoint( singularityLoc );
   currentCamera->computeArcballPosition();	
 }
 
@@ -197,14 +199,15 @@ void renderScene(void) {
   // DRAW STUFF HERE //
 
   // Background
+/*
   glPushMatrix(); {
 
     glScalef(5, 1, 1);
     glBegin(GL_QUADS); {
       glColor3f(0,1,0);
-      glVertex3f(2, 0, 0);
-      glVertex3f(2, 2, 0);
-      glVertex3f(0, 2, 0);
+      glVertex3f(10, 0, 0);
+      glVertex3f(10, 10, 0);
+      glVertex3f(0, 10, 0);
       glVertex3f(0, 0, 0);
  
       // glColor3f(1,0,0);
@@ -214,14 +217,15 @@ void renderScene(void) {
       // glVertex3f(0, 0, 0);
 
       glColor3f(0, 0, 1);
-      glVertex3f(0, 0, 2);
-      glVertex3f(2, 0, 2);
-      glVertex3f(2, 0, 0);
-      glVertex3f(0, 0, 0);
+      glVertex3f(-10, 0, 10);
+      glVertex3f(10, 0, 10);
+      glVertex3f(10, 0, 0);
+      glVertex3f(-10, 0, 0);
 
     } glEnd();
     
   } glPopMatrix();
+*/
 
   singularity->draw();
   particleManager->draw();  
@@ -265,18 +269,26 @@ void normalKeys(unsigned char key, int x, int y) {
   if(key == 'q' || key == 'Q')
     exit(0);
   
+  keyState[key] = 1;
   switch (key) {    
-    // CAMERA MOVEMENT
+    // CAMERA MOVEMEN
+
+    /*
   case 's': case 'S':
-    heroLoc->setX( heroLoc->getX() + 0.1 );
+    keyState['s']
+    singularity->vel.x += 0.005;
     break;
   case 'a': case 'A':
-    heroLoc->setX( heroLoc->getX() - 0.1 );
+    singularity->vel.x -= 0.005;
     break;
-
+    */
   }
 
   glutPostRedisplay(); // post only if we changed the camera at all
+}
+
+void keyUp(unsigned char key, int x, int y) {
+  keyState[key] = 0;
 }
 
 void mouseCallback(int button, int state, int thisX, int thisY) {
@@ -303,7 +315,7 @@ void mouseCallback(int button, int state, int thisX, int thisY) {
 }
 
 void mouseMotion(int x, int y) {
-  if( leftMouseButton == GLUT_DOWN ) {
+  if( 0 ) {//leftMouseButton == GLUT_DOWN ) {
     //update theta and phi! 
     currentCamera->setTheta( currentCamera->getTheta() + (x-mouseX)*0.005 );
     currentCamera->setPhi( currentCamera->getPhi() + (y-mouseY)*0.005 );
@@ -346,6 +358,13 @@ void myTimer(int value) {
   double currTime = glutGet(GLUT_ELAPSED_TIME);
   double timePassed = (currTime - lastTime)/1000;
   lastTime = currTime;
+
+  if (keyState['s'] == 1) { // the s key is pressed
+    singularity->vel.x += 0.005;
+  }
+  if (keyState['a'] == 1) {
+    singularity->vel.x -= 0.005;
+  }
 
   particleManager->update(timePassed);
   singularity->update(timePassed);
@@ -466,8 +485,8 @@ int main(int argc, char **argv) {
   // INITIALIZE GAME OBJECTS //
   /////////////////////////////
 
-  singularity = new Singularity( Point(0,1,1) );
-
+  singularity = new Singularity( singularityLoc );  
+  
   // create particle manager
   particleManager = new ParticleManager;
   particleManager->setShader(velocityShaderHandle);
@@ -478,6 +497,7 @@ int main(int argc, char **argv) {
 	
   //register callback functions...
   glutKeyboardFunc(normalKeys);
+  glutKeyboardUpFunc(keyUp);
   glutDisplayFunc(renderScene);
   glutReshapeFunc(resizeWindow);
   glutMouseFunc( mouseCallback );

@@ -15,6 +15,19 @@ ParticleManager::ParticleManager () {
   SubatomicParticle* test = new SubatomicParticle;
   test->loc = Point(1,1,1);
   strayParticles.insert(test);
+
+  SubatomicParticle* t = new SubatomicParticle;
+  t->loc = Point(2,2,1);
+  strayParticles.insert(t);
+
+  SubatomicParticle* t2 = new SubatomicParticle;
+  t2->loc = Point(3,1,1);
+  strayParticles.insert(t2);
+
+  SubatomicParticle* t3 = new SubatomicParticle;
+  t3->loc = Point(-3,0,1);
+  strayParticles.insert(t3);
+
   
 }
 
