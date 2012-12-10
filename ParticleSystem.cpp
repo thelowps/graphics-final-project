@@ -18,7 +18,7 @@ ParticleSystem::ParticleSystem () {
   springConstant = 5.0;
   repelConstant = 0.1;
   dampConstant = 0.02;
-  magneticField = Vector(0.1, 0.1, 7.0);
+  magneticField = Vector(0.1, 0.1, 6.0);
 
   springForcesOn = true;
   repelForcesOn = true;
@@ -54,8 +54,8 @@ void ParticleSystem::update (float timePassed) {
     if (springForcesOn) {
       // spring force //
       Vector ptoc = (*it)->loc - loc;
+      if (ptoc.mag() > 1) ptoc *= 1/ptoc.mag();
       float f = springConstant * ((*it)->data['s'] - ptoc.mag());
-      //if ( fabs(f) > 1.0 ) 
       Vector force = ptoc * f;
       (*it)->vel += force;
     }

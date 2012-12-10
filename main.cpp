@@ -54,7 +54,7 @@ int leftClickMouseX = 0, leftClickMouseY = 0;
 std::map<char, short> keyState;
 
 // level dimensions
-float levelWidth = 100, levelHeight = 100, levelDepth = 20;
+float levelWidth = 50, levelHeight = 50, levelDepth = 10;
 
 // keeping track of time
 double lastTime = 0;
@@ -74,6 +74,9 @@ Singularity *singularity;
 // Shader handles
 GLint velocityShaderHandle;
 GLint velocityVertexShader, velocityFragmentShader;
+
+// Texture handles
+std::map<string, GLuint> textures;
 
 // END GLOBAL VARIABLES ///////////////////////////////////////////////////////
 
@@ -114,8 +117,8 @@ void setupCameras() {
 	
   // and give the camera a 'pretty' starting point!
   currentCamera->setRadius( 10.0f );
-  currentCamera->setTheta( 2.80f );
-  currentCamera->setPhi( 2.0f );
+  currentCamera->setTheta( 0.0f );
+  currentCamera->setPhi( M_PI/2 - 0.001f );
 
   singularityLoc = new Point;
   currentCamera->followPoint( singularityLoc );
@@ -129,57 +132,77 @@ void setupLights() {
   glLightModelfv( GL_LIGHT_MODEL_AMBIENT, inkyBlackness );
 
 }
- 
-// readTextFile() //////////////////////////////////////////////////////////////
-//  Reads in a text file as a single string. Used to aid in shader loading.
-////////////////////////////////////////////////////////////////////////////////
-void readTextFile(string filename, char* &output)
-{
-  string buf = string("");
-  string line;
-  
-  ifstream in(filename.c_str());
-  while(getline(in, line))
-    buf += line + "\n";
-  output = new char[buf.length()+1];
-  strncpy(output, buf.c_str(), buf.length());
-  output[buf.length()] = '\0';
-  
-  in.close();
+
+
+////////////////////////
+// DRAWING FUNCTIONS ///
+////////////////////////
+void drawBackground (void)  {
+  static short firstTime = 1;
+  static GLuint backgroundHandle;
+
+  if (!firstTime) {
+    glCallList(backgroundHandle);
+  }
+
+  firstTime = 0;
+  backgroundHandle = glGenLists(1);
+  glNewList(backgroundHandle, GL_COMPILE); {  
+    glUseProgram(0);
+    glEnable( GL_TEXTURE_2D );
+    glBindTexture( GL_TEXTURE_2D, textures["images/space.jpg"] );
+    
+    glBegin(GL_QUADS); {      
+      glTexCoord2f(1.0, 1.0); glVertex3f(-levelWidth, -levelHeight, levelDepth);
+      glTexCoord2f(1.0, 0.0); glVertex3f(-levelWidth, levelHeight,  levelDepth);
+      glTexCoord2f(0.0, 0.0); glVertex3f( levelWidth, levelHeight,  levelDepth);
+      glTexCoord2f(0.0, 1.0); glVertex3f( levelWidth, -levelHeight, levelDepth);
+    } glEnd();
+    
+    glDisable(GL_TEXTURE_2D);
+  } glEndList();
+
 }
 
+// Draw a selection box for the user
+void drawSelectionBox () {
+  glDisable(GL_DEPTH_TEST);
+  glDisable(GL_LIGHTING);
 
-// printLog() //////////////////////////////////////////////////////////////////
-//  Check for errors from compiling or linking a vertex/fragment/shader program
-//	Prints to terminal
-////////////////////////////////////////////////////////////////////////////////
-void printLog( GLuint handle ) {
-  int infologLength = 0;
-  int maxLength;
-	
-  /* check if the handle is to a vertex/fragment shader */
-  if( glIsShader( handle ) )
-    glGetShaderiv(  handle, GL_INFO_LOG_LENGTH, &maxLength );
-  /* check if the handle is to a shader program */
-  else
-    glGetProgramiv( handle, GL_INFO_LOG_LENGTH, &maxLength );
-	
-  /* create a buffer of designated length */
-  char infoLog[maxLength];
-	
-  if( glIsShader( handle ) )
-    /* get the info log for the vertex/fragment shader */
-    glGetShaderInfoLog(  handle, maxLength, &infologLength, infoLog );
-  else
-    /* get the info log for the shader program */
-    glGetProgramInfoLog( handle, maxLength, &infologLength, infoLog );
-	
-  /* if the length of the log is greater than 0 */
-  if( infologLength > 0 )
-    /* print info to terminal */
-    printf( "[INFO]: Shader Handle %d: %s\n", handle, infoLog );
+  // calculate on-screen position of a click  
+  GLdouble model_view[16];
+  glGetDoublev(GL_MODELVIEW_MATRIX, model_view);
+  GLdouble projection[16];
+  glGetDoublev(GL_PROJECTION_MATRIX, projection);
+  GLint viewport[4];
+  glGetIntegerv(GL_VIEWPORT, viewport);
+  GLdouble winX, winY, winZ;
+
+  // super useful function
+  gluUnProject(mouseX, windowHeight - mouseY, 0,
+	       model_view, projection, viewport,
+	       &winX, &winY, &winZ);    
+  double x1 = winX, y1 = winY, z1 = winZ;
+  gluUnProject(leftClickMouseX, windowHeight - leftClickMouseY, 0,
+	       model_view, projection, viewport,
+	       &winX, &winY, &winZ);
+  double x2 = winX, y2 = winY;
+  
+  Vector l = currentCamera->getLookAt() - currentCamera->getEye();
+
+  cout << x1 << ", " << y1 << " -- " << x2 << ", " << y2 << endl;
+  
+  glColor3f(1,1,1);
+  glBegin(GL_LINES); {
+    glVertex3f(x1, y1, z1);
+    glVertex3f(x2, y1, z1);
+    glVertex3f(x2, y2, z1);
+    glVertex3f(x1, y2, z1);
+    glVertex3f(x1, y1, z1);
+  } glEnd();
+
+  glEnable(GL_DEPTH_TEST);  
 }
-
 
 // RENDER SCENE
 void renderScene(void) {
@@ -197,65 +220,14 @@ void renderScene(void) {
   glEnable(GL_DEPTH_TEST);
 
   // DRAW STUFF HERE //
-
-  // Background
-/*
-  glPushMatrix(); {
-
-    glScalef(5, 1, 1);
-    glBegin(GL_QUADS); {
-      glColor3f(0,1,0);
-      glVertex3f(10, 0, 0);
-      glVertex3f(10, 10, 0);
-      glVertex3f(0, 10, 0);
-      glVertex3f(0, 0, 0);
- 
-      // glColor3f(1,0,0);
-      // glVertex3f(0, 2, 0);
-      // glVertex3f(0, 2, 2);
-      // glVertex3f(0, 0, 2);
-      // glVertex3f(0, 0, 0);
-
-      glColor3f(0, 0, 1);
-      glVertex3f(-10, 0, 10);
-      glVertex3f(10, 0, 10);
-      glVertex3f(10, 0, 0);
-      glVertex3f(-10, 0, 0);
-
-    } glEnd();
-    
-  } glPopMatrix();
-*/
-
+  
+  drawBackground();
   singularity->draw();
   particleManager->draw();  
-  
-  glDisable(GL_DEPTH_TEST);
-  glDisable(GL_LIGHTING);
-  if (leftMouseButton == GLUT_DOWN) {
-    float boxX = (2*(float)leftClickMouseX/windowHeight)-1;
-    float boxY = (2*(float)leftClickMouseY/windowHeight)-1;
-    float boxXX = (2*(float)mouseX/windowHeight)-1;
-    float boxYY = (2*(float)mouseY/windowHeight)-1;
-    glColor3f(1,1,1);
-    glPushMatrix(); {
-      glLoadIdentity();
-      glMatrixMode(GL_PROJECTION);
-      glPushMatrix();
-      glLoadIdentity();
-      glBegin(GL_LINE_STRIP); {
-	glVertex3f(boxX, -boxY, 0);
-	glVertex3f(boxXX, -boxY, 0);
-	glVertex3f(boxXX, -boxYY, 0);
-	glVertex3f(boxX, -boxYY, 0);
-	glVertex3f(boxX, -boxY, 0);
-      } glEnd();
-      glPopMatrix();
-      glMatrixMode(GL_MODELVIEW);
-    } glPopMatrix();
-  }
 
-  glEnable(GL_DEPTH_TEST);
+  if (leftMouseButton == GLUT_DOWN) {
+    drawSelectionBox();
+  }
 
   // DONE DRAWING //
   
@@ -271,8 +243,6 @@ void normalKeys(unsigned char key, int x, int y) {
   
   keyState[key] = 1;
   switch (key) {    
-    // CAMERA MOVEMEN
-
     /*
   case 's': case 'S':
     keyState['s']
@@ -284,7 +254,7 @@ void normalKeys(unsigned char key, int x, int y) {
     */
   }
 
-  glutPostRedisplay(); // post only if we changed the camera at all
+  //glutPostRedisplay(); // post only if we changed the camera at all
 }
 
 void keyUp(unsigned char key, int x, int y) {
@@ -341,8 +311,8 @@ void mouseMotion(int x, int y) {
     //limit the camera radius to some reasonable values so the user can't get lost
     if( currentCamera->getRadius() < 2.0 )
       currentCamera->setRadius( 2.0 );
-    if( currentCamera->getRadius() > 50.0 )
-      currentCamera->setRadius( 50.0 );
+    if( currentCamera->getRadius() > 20.0 )
+      currentCamera->setRadius( 20.0 );
     
     //update camera (x,y,z) based on (radius,theta,phi)
     currentCamera->computeArcballPosition();
@@ -373,6 +343,56 @@ void myTimer(int value) {
   glutTimerFunc((unsigned int)(1000.0 / 60.0), myTimer, 0);
 }
 
+// readTextFile() //////////////////////////////////////////////////////////////
+//  Reads in a text file as a single string. Used to aid in shader loading.
+////////////////////////////////////////////////////////////////////////////////
+void readTextFile(string filename, char* &output)
+{
+  string buf = string("");
+  string line;
+  
+  ifstream in(filename.c_str());
+  while(getline(in, line))
+    buf += line + "\n";
+  output = new char[buf.length()+1];
+  strncpy(output, buf.c_str(), buf.length());
+  output[buf.length()] = '\0';
+  
+  in.close();
+}
+
+
+// printLog() //////////////////////////////////////////////////////////////////
+//  Check for errors from compiling or linking a vertex/fragment/shader program
+//	Prints to terminal
+////////////////////////////////////////////////////////////////////////////////
+void printLog( GLuint handle ) {
+  int infologLength = 0;
+  int maxLength;
+	
+  /* check if the handle is to a vertex/fragment shader */
+  if( glIsShader( handle ) )
+    glGetShaderiv(  handle, GL_INFO_LOG_LENGTH, &maxLength );
+  /* check if the handle is to a shader program */
+  else
+    glGetProgramiv( handle, GL_INFO_LOG_LENGTH, &maxLength );
+	
+  /* create a buffer of designated length */
+  char infoLog[maxLength];
+	
+  if( glIsShader( handle ) )
+    /* get the info log for the vertex/fragment shader */
+    glGetShaderInfoLog(  handle, maxLength, &infologLength, infoLog );
+  else
+    /* get the info log for the shader program */
+    glGetProgramInfoLog( handle, maxLength, &infologLength, infoLog );
+	
+  /* if the length of the log is greater than 0 */
+  if( infologLength > 0 )
+    /* print info to terminal */
+    printf( "[INFO]: Shader Handle %d: %s\n", handle, infoLog );
+}
+
 // Helper function to reduce clutter. 
 // Loads a single texture using SOIL
 void loadOneTexture (GLuint& index, const char* tex) {
@@ -383,6 +403,15 @@ void loadOneTexture (GLuint& index, const char* tex) {
 // Load all textures that will be used in our scene
 // Also set some parameters for our textures
 void loadTextures () {
+  
+  const int amt_textures = 1;
+  const char* names [amt_textures] = {"images/space.jpg"};  
+  
+  for (int i = 0; i < amt_textures; ++i) {
+    GLuint& t = textures[names[i]];
+    loadOneTexture ( t, names[i] );
+    cout << "Texture named " << names[i] << " indexed at " << textures[names[i]] << endl;
+  }
 
   // TODO: find out what these do =P
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
