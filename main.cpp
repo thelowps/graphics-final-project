@@ -188,7 +188,12 @@ void drawSelectionBox () {
 	       &winX, &winY, &winZ);
   double x2 = winX, y2 = winY;
   
-  Vector l = currentCamera->getLookAt() - currentCamera->getEye();
+  // Vector l = *(currentCamera->getLookAt()) - *(currentCamera->getEye());
+  // x1 += l.x * 0.01;
+  // x2 += l.x * 0.01;
+  // y1 += l.y * 0.01;
+  // y2 += l.y * 0.01;
+  // z1 += l.z * 0.01;
 
   cout << x1 << ", " << y1 << " -- " << x2 << ", " << y2 << endl;
   
@@ -220,7 +225,19 @@ void renderScene(void) {
   glEnable(GL_DEPTH_TEST);
 
   // DRAW STUFF HERE //
-  
+
+  // Send our light positions to the shaders
+  glUseProgram(velocityShaderHandle);
+
+  GLfloat lights [16] = {singularityLoc->x,singularityLoc->y,singularityLoc->z,
+			 1.0, 1.0, 2.0,
+			 0.0, 0.0, 2.0,
+			 0.0, 1.0, 1.0};
+  GLint amt = glGetUniformLocation(velocityShaderHandle, "amtCelLights");
+  glUniform1i(amt, 1);
+  GLint pos = glGetUniformLocation(velocityShaderHandle, "lightPos");
+  glUniform4fv(pos, 4, lights);
+
   drawBackground();
   singularity->draw();
   particleManager->draw();  
@@ -285,7 +302,7 @@ void mouseCallback(int button, int state, int thisX, int thisY) {
 }
 
 void mouseMotion(int x, int y) {
-  if( 0 ) {//leftMouseButton == GLUT_DOWN ) {
+  if ( leftMouseButton == GLUT_DOWN ) {
     //update theta and phi! 
     currentCamera->setTheta( currentCamera->getTheta() + (x-mouseX)*0.005 );
     currentCamera->setPhi( currentCamera->getPhi() + (y-mouseY)*0.005 );
